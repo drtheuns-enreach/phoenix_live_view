@@ -67,9 +67,13 @@ let Browser = {
     document.cookie = `${name}=; max-age=-1; path=/`
   },
 
-  redirect(toURL, flash){
+  redirect(toURL, flash, navigateFn){
     if(flash){ this.setCookie("__phoenix_flash__", flash, 60) }
-    window.location = toURL
+    if (navigateFn) {
+      navigateFn(toUrl)
+    } else {
+      window.location = toURL
+    }
   },
 
   localKey(namespace, subkey){ return `${namespace}-${subkey}` },

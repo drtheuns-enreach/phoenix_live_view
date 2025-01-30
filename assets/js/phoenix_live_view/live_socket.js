@@ -72,6 +72,9 @@
  * @param {Object} [opts.localStorage] - An optional Storage compatible object
  * Useful for when LiveView won't have access to `localStorage`.
  * See `opts.sessionStorage` for examples.
+ * @param {() => void} [opts.reload] - The function to call to reload the page.
+ * @param {(string) => void} [opts.navigate] - The function to call to do a full
+ * page navigation.
 */
 
 import {
@@ -124,6 +127,8 @@ export let isUsedInput = (el) => DOM.isUsedInput(el)
 
 export default class LiveSocket {
   constructor(url, phxSocket, opts = {}){
+    this.reloadFn = opts.reload
+    this.navigateFn = opts.navigate
     this.unloaded = false
     if(!phxSocket || phxSocket.constructor.name === "Object"){
       throw new Error(`
@@ -180,7 +185,7 @@ export default class LiveSocket {
     this.socket.onOpen(() => {
       if(this.isUnloaded()){
         // reload page if being restored from back/forward cache and browser does not emit "pageshow"
-        window.location.reload()
+        this.reload()
       }
     })
   }
@@ -337,9 +342,9 @@ export default class LiveSocket {
         this.log(view, "join", () => [`exceeded ${this.maxReloads} consecutive reloads. Entering failsafe mode`])
       }
       if(this.hasPendingLink()){
-        window.location = this.pendingLink
+        this.navigate(this.pendingLink)
       } else {
-        window.location.reload()
+        this.reload()
       }
     }, afterMs)
   }
@@ -392,7 +397,7 @@ export default class LiveSocket {
   redirect(to, flash, reloadToken){
     if(reloadToken){ Browser.setCookie(PHX_RELOAD_STATUS, reloadToken, 60) }
     this.unload()
-    Browser.redirect(to, flash)
+    Browser.redirect(to, flash, this.navigateFn)
   }
 
   replaceMain(href, flash, callback = null, linkRef = this.setPendingLink(href)){
@@ -528,7 +533,7 @@ export default class LiveSocket {
       if(e.persisted){ // reload page if being restored from back/forward cache
         this.getSocket().disconnect()
         this.withPageLoading({to: window.location.href, kind: "redirect"})
-        window.location.reload()
+        this.reload()
       }
     }, true)
     if(!dead){ this.bindNav() }
@@ -772,7 +777,7 @@ export default class LiveSocket {
   }
 
   pushHistoryPatch(e, href, linkState, targetEl){
-    if(!this.isConnected() || !this.main.isMain()){ return Browser.redirect(href) }
+    if(!this.isConnected() || !this.main.isMain()){ return Browser.redirect(href, null, this.navigateFn) }
 
     this.withPageLoading({to: href, kind: "patch"}, done => {
       this.main.pushLinkPatch(e, href, targetEl, linkRef => {
@@ -805,7 +810,7 @@ export default class LiveSocket {
   historyRedirect(e, href, linkState, flash, targetEl){
     const clickLoading = targetEl && e.isTrusted && e.type !== "popstate"
     if(clickLoading){ targetEl.classList.add("phx-click-loading") }
-    if(!this.isConnected() || !this.main.isMain()){ return Browser.redirect(href, flash) }
+    if(!this.isConnected() || !this.main.isMain()){ return Browser.redirect(href, flash, this.navigateFn) }
 
     // convert to full href if only path prefix
     if(/^\/$|^\/[^\/]+.*$/.test(href)){
@@ -1028,6 +1033,22 @@ class TransitionSet {
     if(op){
       op()
       this.flushPendingOps()
+    }
+  }
+
+  reload() {
+    if (this.reloadFn) {
+      this.reloadFn()
+    } else {
+      window.location.reload()
+    }
+  }
+
+  navigate(to) {
+    if (this.navigateFn) {
+      this.navigateFn(to)
+    } else {
+      window.location = to
     }
   }
 }
