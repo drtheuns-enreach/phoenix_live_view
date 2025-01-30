@@ -336,8 +336,8 @@ export default class View {
       Browser.pushState("replace", {
         type: "patch",
         id: this.id,
-        position: this.liveSocket.currentHistoryPosition
-      })
+        position: this.liveSocket.currentHistoryPosition,
+      }, null, this.liveSocket.navigateFn)
     }
 
     if(liveview_version !== this.liveSocket.version()){

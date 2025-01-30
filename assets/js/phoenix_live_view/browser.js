@@ -22,7 +22,7 @@ let Browser = {
     history.replaceState(callback(history.state || {}), "", window.location.href)
   },
 
-  pushState(kind, meta, to){
+  pushState(kind, meta, to, navigateFn){
     if(this.canPushState()){
       if(to !== window.location.href){
         if(meta.type == "redirect" && meta.scroll){
@@ -50,7 +50,7 @@ let Browser = {
         })
       }
     } else {
-      this.redirect(to)
+      this.redirect(to, null, navigateFn)
     }
   },
 

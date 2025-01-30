@@ -801,7 +801,7 @@ export default class LiveSocket {
       type: "patch",
       id: this.main.id,
       position: this.currentHistoryPosition
-    }, href)
+    }, href, this.navigateFn)
 
     DOM.dispatchEvent(window, "phx:navigate", {detail: {patch: true, href, pop: false, direction: "forward"}})
     this.registerNewLocation(window.location)
@@ -833,7 +833,7 @@ export default class LiveSocket {
             id: this.main.id,
             scroll: scroll,
             position: this.currentHistoryPosition
-          }, href)
+          }, href, this.navigateFn)
 
           DOM.dispatchEvent(window, "phx:navigate", {detail: {href, patch: false, pop: false, direction: "forward"}})
           this.registerNewLocation(window.location)
