@@ -320,7 +320,7 @@ var LiveView = (() => {
         this.setCookie("__phoenix_flash__", flash, 60);
       }
       if (navigateFn) {
-        navigateFn(toUrl);
+        navigateFn(toURL);
       } else {
         window.location = toURL;
       }
