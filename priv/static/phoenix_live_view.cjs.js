@@ -298,11 +298,15 @@ var Browser = {
   deleteCookie(name) {
     document.cookie = `${name}=; max-age=-1; path=/`;
   },
-  redirect(toURL, flash) {
+  redirect(toURL, flash, navigateFn) {
     if (flash) {
       this.setCookie("__phoenix_flash__", flash, 60);
     }
-    window.location = toURL;
+    if (navigateFn) {
+      navigateFn(toUrl);
+    } else {
+      window.location = toURL;
+    }
   },
   localKey(namespace, subkey) {
     return `${namespace}-${subkey}`;
@@ -4739,6 +4743,8 @@ var View = class _View {
 var isUsedInput = (el) => dom_default.isUsedInput(el);
 var LiveSocket = class {
   constructor(url, phxSocket, opts = {}) {
+    this.reloadFn = opts.reload;
+    this.navigateFn = opts.navigate;
     this.unloaded = false;
     if (!phxSocket || phxSocket.constructor.name === "Object") {
       throw new Error(`
@@ -4797,7 +4803,7 @@ var LiveSocket = class {
     });
     this.socket.onOpen(() => {
       if (this.isUnloaded()) {
-        window.location.reload();
+        this.reload();
       }
     });
   }
@@ -4956,9 +4962,9 @@ var LiveSocket = class {
         this.log(view, "join", () => [`exceeded ${this.maxReloads} consecutive reloads. Entering failsafe mode`]);
       }
       if (this.hasPendingLink()) {
-        window.location = this.pendingLink;
+        this.navigate(this.pendingLink);
       } else {
-        window.location.reload();
+        this.reload();
       }
     }, afterMs);
   }
@@ -5017,7 +5023,7 @@ var LiveSocket = class {
       browser_default.setCookie(PHX_RELOAD_STATUS, reloadToken, 60);
     }
     this.unload();
-    browser_default.redirect(to, flash);
+    browser_default.redirect(to, flash, this.navigateFn);
   }
   replaceMain(href, flash, callback = null, linkRef = this.setPendingLink(href)) {
     const liveReferer = this.currentLocation.href;
@@ -5137,7 +5143,7 @@ var LiveSocket = class {
       if (e.persisted) {
         this.getSocket().disconnect();
         this.withPageLoading({ to: window.location.href, kind: "redirect" });
-        window.location.reload();
+        this.reload();
       }
     }, true);
     if (!dead) {
@@ -5379,7 +5385,7 @@ var LiveSocket = class {
   }
   pushHistoryPatch(e, href, linkState, targetEl) {
     if (!this.isConnected() || !this.main.isMain()) {
-      return browser_default.redirect(href);
+      return browser_default.redirect(href, null, this.navigateFn);
     }
     this.withPageLoading({ to: href, kind: "patch" }, (done) => {
       this.main.pushLinkPatch(e, href, targetEl, (linkRef) => {
@@ -5409,7 +5415,7 @@ var LiveSocket = class {
       targetEl.classList.add("phx-click-loading");
     }
     if (!this.isConnected() || !this.main.isMain()) {
-      return browser_default.redirect(href, flash);
+      return browser_default.redirect(href, flash, this.navigateFn);
     }
     if (/^\/$|^\/[^\/]+.*$/.test(href)) {
       let { protocol, host } = window.location;
@@ -5613,6 +5619,20 @@ var TransitionSet = class {
     if (op) {
       op();
       this.flushPendingOps();
+    }
+  }
+  reload() {
+    if (this.reloadFn) {
+      this.reloadFn();
+    } else {
+      window.location.reload();
+    }
+  }
+  navigate(to) {
+    if (this.navigateFn) {
+      this.navigateFn(to);
+    } else {
+      window.location = to;
     }
   }
 };
