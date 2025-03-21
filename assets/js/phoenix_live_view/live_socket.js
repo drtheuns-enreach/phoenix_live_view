@@ -989,6 +989,22 @@ export default class LiveSocket {
     let all = this.domCallbacks.jsQuerySelectorAll
     return all ? all(sourceEl, query, defaultQuery) : defaultQuery()
   }
+
+  reload() {
+    if (this.reloadFn) {
+      this.reloadFn()
+    } else {
+      window.location.reload()
+    }
+  }
+
+  navigate(to) {
+    if (this.navigateFn) {
+      this.navigateFn(to)
+    } else {
+      window.location = to
+    }
+  }
 }
 
 class TransitionSet {
@@ -1033,22 +1049,6 @@ class TransitionSet {
     if(op){
       op()
       this.flushPendingOps()
-    }
-  }
-
-  reload() {
-    if (this.reloadFn) {
-      this.reloadFn()
-    } else {
-      window.location.reload()
-    }
-  }
-
-  navigate(to) {
-    if (this.navigateFn) {
-      this.navigateFn(to)
-    } else {
-      window.location = to
     }
   }
 }
