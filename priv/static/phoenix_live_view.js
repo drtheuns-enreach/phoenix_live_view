@@ -282,7 +282,7 @@ var LiveView = (() => {
       }
       history.replaceState(callback(history.state || {}), "", window.location.href);
     },
-    pushState(kind, meta, to) {
+    pushState(kind, meta, to, navigateFn) {
       if (this.canPushState()) {
         if (to !== window.location.href) {
           if (meta.type == "redirect" && meta.scroll) {
@@ -302,7 +302,7 @@ var LiveView = (() => {
           });
         }
       } else {
-        this.redirect(to);
+        this.redirect(to, null, navigateFn);
       }
     },
     setCookie(name, value, maxAgeSeconds) {
@@ -3633,7 +3633,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
           type: "patch",
           id: this.id,
           position: this.liveSocket.currentHistoryPosition
-        });
+        }, null, this.liveSocket.navigateFn);
       }
       if (liveview_version !== this.liveSocket.version()) {
         console.error(`LiveView asset version mismatch. JavaScript version ${this.liveSocket.version()} vs. server ${liveview_version}. To avoid issues, please ensure that your assets use the same version as the server.`);
@@ -5423,7 +5423,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
         type: "patch",
         id: this.main.id,
         position: this.currentHistoryPosition
-      }, href);
+      }, href, this.navigateFn);
       dom_default.dispatchEvent(window, "phx:navigate", { detail: { patch: true, href, pop: false, direction: "forward" } });
       this.registerNewLocation(window.location);
     }
@@ -5451,7 +5451,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
               id: this.main.id,
               scroll,
               position: this.currentHistoryPosition
-            }, href);
+            }, href, this.navigateFn);
             dom_default.dispatchEvent(window, "phx:navigate", { detail: { href, patch: false, pop: false, direction: "forward" } });
             this.registerNewLocation(window.location);
           }
@@ -5594,6 +5594,20 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       let all = this.domCallbacks.jsQuerySelectorAll;
       return all ? all(sourceEl, query, defaultQuery) : defaultQuery();
     }
+    reload() {
+      if (this.reloadFn) {
+        this.reloadFn();
+      } else {
+        window.location.reload();
+      }
+    }
+    navigate(to) {
+      if (this.navigateFn) {
+        this.navigateFn(to);
+      } else {
+        window.location = to;
+      }
+    }
   };
   var TransitionSet = class {
     constructor() {
@@ -5637,20 +5651,6 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       if (op) {
         op();
         this.flushPendingOps();
-      }
-    }
-    reload() {
-      if (this.reloadFn) {
-        this.reloadFn();
-      } else {
-        window.location.reload();
-      }
-    }
-    navigate(to) {
-      if (this.navigateFn) {
-        this.navigateFn(to);
-      } else {
-        window.location = to;
       }
     }
   };
