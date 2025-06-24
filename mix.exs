@@ -1,18 +1,18 @@
 defmodule Phoenix.LiveView.MixProject do
   use Mix.Project
 
-  @version "1.1.0-dev"
+  @version "1.2.0-dev"
 
   def project do
     [
       app: :phoenix_live_view,
       version: @version,
-      elixir: "~> 1.14.1 or ~> 1.15",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
       test_options: [docs: true],
       test_coverage: [summary: [threshold: 85], ignore_modules: coverage_ignore_modules()],
-      xref: [exclude: [Floki]],
+      xref: [exclude: [LazyHTML, LazyHTML.Tree]],
       package: package(),
       deps: deps(),
       aliases: aliases(),
@@ -44,7 +44,7 @@ defmodule Phoenix.LiveView.MixProject do
 
   defp deps do
     [
-      {:phoenix, "~> 1.6.15 or ~> 1.7.0"},
+      {:phoenix, "~> 1.6.15 or ~> 1.7.0 or ~> 1.8.0-rc"},
       {:plug, "~> 1.15"},
       {:phoenix_template, "~> 1.0"},
       {:phoenix_html, "~> 3.3 or ~> 4.0 or ~> 4.1"},
@@ -52,11 +52,11 @@ defmodule Phoenix.LiveView.MixProject do
       {:esbuild, "~> 0.2", only: :dev},
       {:phoenix_view, "~> 2.0", optional: true},
       {:jason, "~> 1.0", optional: true},
-      {:floki, "~> 0.36", optional: true},
+      {:lazy_html, "~> 0.1.0", optional: true},
       {:ex_doc, "~> 0.29", only: :docs},
-      {:makeup_elixir, "~> 1.0.1 or ~> 1.1", only: :docs},
-      {:makeup_eex, "~> 2.0", only: :docs},
-      {:makeup_syntect, "~> 0.1.0", only: :docs},
+      {:makeup_elixir, "~> 1.0.1 or ~> 1.1", only: [:docs, :e2e]},
+      {:makeup_eex, "~> 2.0", only: [:docs, :e2e]},
+      {:makeup_syntect, "~> 0.1.0", only: [:docs, :e2e]},
       {:html_entities, ">= 0.0.0", only: :test},
       {:phoenix_live_reload, "~> 1.4", only: :test},
       {:phoenix_html_helpers, "~> 1.0", only: :test},
@@ -86,46 +86,30 @@ defmodule Phoenix.LiveView.MixProject do
 
   defp before_closing_body_tag(:html) do
     """
-    <script type="module">
-    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10.0.2/dist/mermaid.esm.min.mjs';
-    mermaid.initialize({
-      securityLevel: 'loose',
-      theme: 'base'
-    });
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js"></script>
+    <script>
+      let initialized = false;
+
+      window.addEventListener("exdoc:loaded", () => {
+        if (!initialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          initialized = true;
+        }
+
+        let id = 0;
+        for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+          const graphDefinition = codeEl.textContent;
+          const graphId = "mermaid-graph-" + id++;
+          mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
+            codeEl.innerHTML = svg;
+            bindFunctions?.(codeEl);
+          });
+        }
+      });
     </script>
-    <style>
-    code.mermaid text.flowchartTitleText {
-      fill: var(--textBody) !important;
-    }
-    code.mermaid g.cluster > rect {
-      fill: var(--background) !important;
-      stroke: var(--neutralBackground) !important;
-    }
-    code.mermaid g.cluster[id$="__transparent"] > rect {
-      fill-opacity: 0 !important;
-      stroke: none !important;
-    }
-    code.mermaid g.nodes span.nodeLabel > em {
-      font-style: normal;
-      background-color: white;
-      opacity: 0.5;
-      padding: 1px 2px;
-      border-radius: 5px;
-    }
-    code.mermaid g.edgePaths > path {
-      stroke: var(--textBody) !important;
-    }
-    code.mermaid g.edgeLabels span.edgeLabel:not(:empty) {
-      background-color: var(--textBody) !important;
-      padding: 3px 5px !important;
-      border-radius:25%;
-      color: var(--background) !important;
-    }
-    code.mermaid .marker {
-      fill: var(--textBody) !important;
-      stroke: var(--textBody) !important;
-    }
-    </style>
     """
   end
 
@@ -201,8 +185,14 @@ defmodule Phoenix.LiveView.MixProject do
 
   defp aliases do
     [
-      "assets.build": ["esbuild module", "esbuild cdn", "esbuild cdn_min", "esbuild main"],
-      "assets.watch": ["esbuild module --watch"]
+      "assets.build": [
+        "cmd npm run build",
+        "esbuild module",
+        "esbuild cdn",
+        "esbuild cdn_min",
+        "esbuild main"
+      ],
+      "assets.watch": ["cmd npm run build -- --watch", "esbuild module --watch"]
     ]
   end
 

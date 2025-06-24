@@ -3,7 +3,9 @@
  * https://jestjs.io/docs/configuration
  */
 
-module.exports = {
+import { default as packageJson } from "./package.json" with { type: "json" };
+
+export default {
   // All imported modules in your tests should be mocked automatically
   // automock: false,
 
@@ -26,10 +28,7 @@ module.exports = {
   // coverageDirectory: undefined,
 
   // An array of regexp pattern strings used to skip coverage collection
-  coveragePathIgnorePatterns: [
-    "/node_modules/",
-    "/assets/test/"
-  ],
+  coveragePathIgnorePatterns: ["/node_modules/", "/assets/test/"],
 
   collectCoverage: true,
 
@@ -59,7 +58,7 @@ module.exports = {
 
   // A set of global variables that need to be available in all test environments
   globals: {
-    LV_VSN: require("./package.json").version,
+    LV_VSN: packageJson.version,
   },
 
   // The maximum amount of workers used to run your tests. Can be specified as % or a number. E.g. maxWorkers: 10% will use 10% of your CPU amount + 1 as the maximum worker number. maxWorkers: 2 will use a maximum of 2 workers.
@@ -82,8 +81,8 @@ module.exports = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
-    "^phoenix_live_view$": "<rootDir>/assets/js/phoenix_live_view/index.js",
-    "^phoenix_live_view/(.*)$": "<rootDir>/assets/js/phoenix_live_view/$1.js"
+    "^phoenix_live_view$": "<rootDir>/assets/js/phoenix_live_view/index.ts",
+    "^phoenix_live_view/(.*)$": "<rootDir>/assets/js/phoenix_live_view/$1",
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader
@@ -104,15 +103,14 @@ module.exports = {
   // Use this configuration option to add custom reporters to Jest
   reporters: [
     "default",
-    ["jest-monocart-coverage", {
-      name: "Phoenix LiveView JS Unit Coverage",
-      reports: [
-        ["raw", {outputDir: "./raw"}],
-        ["v8"],
-        ["console-summary"]
-      ],
-      outputDir: "./coverage"
-    }]
+    [
+      "jest-monocart-coverage",
+      {
+        name: "Phoenix LiveView JS Unit Coverage",
+        reports: [["raw", { outputDir: "./raw" }], ["v8"], ["console-summary"]],
+        outputDir: "./coverage",
+      },
+    ],
   ],
 
   // Automatically reset mock state between every test
@@ -139,14 +137,12 @@ module.exports = {
   // runner: "jest-runner",
 
   // The paths to modules that run some code to configure or set up the testing environment before each test
-  setupFiles: [
-    "<rootDir>/setupTests.js"
-  ],
+  setupFiles: ["<rootDir>/setupTests.js"],
 
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
-  setupFilesAfterEnv: [
-    "<rootDir>/setupTestsAfterEnv.js"
-  ],
+  // setupFilesAfterEnv: [
+  //   "<rootDir>/setupTestsAfterEnv.js"
+  // ],
 
   // The number of seconds after which a test is considered as slow and reported as such in the results.
   // slowTestThreshold: 5,
@@ -175,7 +171,7 @@ module.exports = {
   // ],
 
   // The regexp pattern or array of patterns that Jest uses to detect test files
-  testRegex: "/assets/test/.*_test\\.js$",
+  testRegex: "/assets/test/.*_test\\.(js|ts)$",
 
   // This option allows the use of a custom results processor
   // testResultsProcessor: undefined,
@@ -209,4 +205,4 @@ module.exports = {
 
   // Whether to use watchman for file crawling
   // watchman: true,
-}
+};

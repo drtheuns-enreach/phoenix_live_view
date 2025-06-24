@@ -359,6 +359,8 @@ defmodule Phoenix.LiveViewTest.Support.StreamResetLive do
     <button phx-click="delete-insert-existing-at-one">Delete C and insert at 1</button>
     <button phx-click="prepend-existing">Prepend C</button>
     <button phx-click="append-existing">Append C</button>
+    <button phx-click="new-update-only">Add E (update only)</button>
+    <button phx-click="existing-update-only">Update C (update only)</button>
     """
   end
 
@@ -488,6 +490,18 @@ defmodule Phoenix.LiveViewTest.Support.StreamResetLive do
        :items,
        %{id: "c", name: "C"},
        at: -1
+     )}
+  end
+
+  def handle_event("new-update-only", _, socket) do
+    {:noreply, stream_insert(socket, :items, %{id: "e", name: "E"}, at: -1, update_only: true)}
+  end
+
+  def handle_event("existing-update-only", _, socket) do
+    {:noreply,
+     stream_insert(socket, :items, %{id: "c", name: "C #{System.unique_integer()}"},
+       at: -1,
+       update_only: true
      )}
   end
 end
@@ -712,18 +726,26 @@ defmodule Phoenix.LiveViewTest.Support.StreamNestedComponentResetLive do
 
     # first mount
     def update(assigns, socket) do
+      items =
+        if connected?(socket) do
+          [
+            %{id: assigns.id <> "-a", name: "N-A"},
+            %{id: assigns.id <> "-b", name: "N-B"},
+            %{id: assigns.id <> "-c", name: "N-C"},
+            %{id: assigns.id <> "-d", name: "N-D"}
+          ]
+        else
+          [
+            %{id: assigns.id <> "-e", name: "N-E"},
+            %{id: assigns.id <> "-f", name: "N-F"},
+            %{id: assigns.id <> "-g", name: "N-G"},
+            %{id: assigns.id <> "-h", name: "N-H"}
+          ]
+        end
+
       socket
       |> assign(assigns)
-      |> stream(
-        :nested,
-        [
-          %{id: assigns.id <> "-a", name: "N-A"},
-          %{id: assigns.id <> "-b", name: "N-B"},
-          %{id: assigns.id <> "-c", name: "N-C"},
-          %{id: assigns.id <> "-d", name: "N-D"}
-        ],
-        reset: true
-      )
+      |> stream(:nested, items, reset: true)
       |> then(&{:ok, &1})
     end
 

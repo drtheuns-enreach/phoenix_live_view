@@ -505,11 +505,12 @@ defmodule Phoenix.Component do
   See `embed_templates/1` for more information, including declarative
   assigns support for embedded templates.
 
-  ## Debug Annotations
+  ## Debug information
 
-  HEEx templates support debug annotations, which are special HTML comments
-  that wrap around rendered components to help you identify where markup
-  in your HTML document is rendered within your function component tree.
+  HEEx templates support adding annotations and locations to the rendered
+  page, which are special HTML comments and attributes that help you identify
+  where markup in your HTML document is rendered within your function component
+  tree.
 
   For example, imagine the following HEEx template:
 
@@ -519,8 +520,8 @@ defmodule Phoenix.Component do
   </.header>
   ```
 
-  The HTML document would receive the following comments when debug annotations
-  are enabled:
+  By turning on `debug_heex_annotations`, the HTML document would receive the
+  following comments when debug annotations are enabled:
 
   ```html
   <!-- @caller lib/app_web/home_live.ex:20 -->
@@ -534,11 +535,21 @@ defmodule Phoenix.Component do
   <!-- </AppWeb.CoreComponents.header> -->
   ```
 
-  Debug annotations work across any `~H` or `.html.heex` template.
-  They can be enabled globally with the following configuration in your
-  `config/dev.exs` file:
+  Similarly, you can also turn on `:debug_tags_location`, which adds a
+  `data-phx-loc` attribute with the line of where each HTML tag is defined:
 
-      config :phoenix_live_view, debug_heex_annotations: true
+  ```html
+  <header data-phx-loc="125" class="p-5">
+    <button data-phx-loc="458" class="px-2 bg-indigo-500 text-white">Click</button>
+  </header>
+  ```
+
+  These features work on any `~H` or `.html.heex` template. They can be enabled
+  globally with the following configuration in your `config/dev.exs` file:
+
+      config :phoenix_live_view,
+        debug_heex_annotations: true,
+        debug_tags_location: true
 
   Changing this configuration will require `mix clean` and a full recompile.
 
@@ -819,6 +830,38 @@ defmodule Phoenix.Component do
 
   Note that unlike Elixir's regular `for`, HEEx' `:for` does not support multiple
   generators in one expression. In such cases, you must use `EEx`'s blocks.
+
+  #### `:key`ed comprehensions
+
+  When using `:for`, you can optionally provide a `:key` expression to also perform
+  change-tracking inside the comprehension:
+
+  ```heex
+  <ul>
+    <li :for={%{id: id, name: name} <- @items} :key={id}>
+      Count: <span>{@count}</span>,
+      item: {name}
+    </li>
+  </ul>
+  ```
+
+  Internally, this works by turning the tag where the comprehension is defined on
+  into the template of a `Phoenix.LiveComponent`. Because of this, the following limitations
+  apply to comprehensions defined with `:key`:
+
+    1. A `:key` can only be defined on regular HTML tags, not on components or slots.
+    2. The `key` must be globally unique. LiveView prefixes the given value with the module,
+       line and file where the `:key` is defined, but there can still be situations where
+       conflicts occur.
+    3. The diff over the wire is optimized to only send changes for each item,
+       but it will always include a list of component IDs (integers) specifying
+       the overall order of items.
+    4. Removing an entry involves separate round-trips with the client to confirm
+       the component removal.
+
+  We recommend to use `:key`ed comprehensions only if you already determined that you need
+  to optimize the diff over the write and [streams](`Phoenix.LiveView.stream/4`)
+  are not an option.
 
   ### Function components
 
@@ -1268,8 +1311,8 @@ defmodule Phoenix.Component do
   ### When connected
 
   LiveView is also able to share assigns via `assign_new` with children LiveViews,
-  as long as the child LiveView is also mounted when the parent LiveView is mounted.
-  Let's see an example.
+  as long as the child LiveView is also mounted when the parent LiveView is mounted
+  and the child LiveView is not rendered with `sticky: true`. Let's see an example.
 
   If the parent LiveView defines a `:current_user` assign and the child LiveView also
   uses `assign_new/3` to fetch the `:current_user` in its `mount/3` callback, as in
@@ -1697,10 +1740,17 @@ defmodule Phoenix.Component do
     unused_field_str = "_unused_#{field}"
 
     case params do
-      %{^field_str => _, ^unused_field_str => _} -> false
-      %{^field_str => %{} = nested} -> Enum.any?(Map.keys(nested), &used_param?(nested, &1))
-      %{^field_str => _val} -> true
-      %{} -> false
+      %{^field_str => _, ^unused_field_str => _} ->
+        false
+
+      %{^field_str => %{} = nested} when not is_struct(nested) ->
+        Enum.any?(Map.keys(nested), &used_param?(nested, &1))
+
+      %{^field_str => _val} ->
+        true
+
+      %{} ->
+        false
     end
   end
 
@@ -3213,8 +3263,16 @@ defmodule Phoenix.Component do
 
   [INSERT LVATTRDOCS]
 
-  Note the `id` attribute cannot be overwritten, but you can create a label with a `for` attribute
-  pointing to the UploadConfig `ref`.
+  ## Customizing the Label
+
+  The `id` attribute cannot be overwritten, but you can create a label with a `for` attribute
+  pointing to the UploadConfig `ref`:
+
+  ```heex
+  <label for={@uploads.avatar.ref}>
+    <.live_file_input upload={@uploads.avatar} />
+  </label>
+  ```
 
   ## Drag and Drop
 
@@ -3223,10 +3281,9 @@ defmodule Phoenix.Component do
   for drag and drop support:
 
   ```heex
-  <div class="container" phx-drop-target={@uploads.avatar.ref}>
-    <!-- ... -->
+  <label for={@uploads.avatar.ref} phx-drop-target={@uploads.avatar.ref}>
     <.live_file_input upload={@uploads.avatar} />
-  </div>
+  </label>
   ```
 
   ## Examples
@@ -3373,15 +3430,26 @@ defmodule Phoenix.Component do
   end
 
   @doc """
-  Renders an async assign with slots for the different loading states.
+  Renders a `Phoenix.LiveView.AsyncResult` struct (e.g. from `Phoenix.LiveView.assign_async/4`)
+  with slots for the different loading states.
   The result state takes precedence over subsequent loading and failed
   states.
 
-  *Note*: The inner block receives the result of the async assign as a :let.
-  The let is only accessible to the inner block and is not in scope to the
-  other slots.
+  > #### Note {: .info}
+  >
+  > The inner block receives the result of the async assign as a `:let`.
+  > The let is only accessible to the inner block and is not in scope to the
+  > other slots.
 
   ## Examples
+
+  ```elixir
+  def mount(%{"slug" => slug}, _, socket) do
+    {:ok,
+      socket
+      |> assign_async(:org, fn -> {:ok, %{org: fetch_org!(slug)}} end)}
+  end
+  ```
 
   ```heex
   <.async_result :let={org} assign={@org}>
@@ -3394,6 +3462,8 @@ defmodule Phoenix.Component do
     <% end %>
   </.async_result>
   ```
+
+  See [Async Operations](`m:Phoenix.LiveView#module-async-operations`) for more information.
 
   To display loading and failed states again on subsequent `assign_async` calls,
   reset the assign to a result-free `%AsyncResult{}`:
@@ -3430,5 +3500,56 @@ defmodule Phoenix.Component do
       async_assign.failed ->
         ~H|{render_slot(@failed, @assign.failed)}|
     end
+  end
+
+  @doc """
+  Renders a portal.
+
+  A portal is a component that teleports its content to another place in the DOM.
+  It is useful in cases where you need to render some content in another place, for
+  example due to overflow or [stacking context](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_positioned_layout/Stacking_context).
+
+  A portal consists of two parts:
+
+  1. The portal source: the component that should be teleported.
+  2. The portal target: the DOM element that will render the content of the portal source.
+
+  Any element can be a portal target. In most cases, the target would be rendered inside
+  the layout of your application. Portal sources must be defined with the `.portal` component.
+
+  ## Examples
+
+  ```heex
+  <.portal id="modal" target="body">
+    ...
+  </.portal>
+  ```
+  """
+
+  attr.(:id, :string, required: true)
+
+  attr.(:target, :string,
+    required: true,
+    doc: "A CSS selector that identifies the target. The target must be unique."
+  )
+
+  attr.(:class, :string, default: nil, doc: "The class to apply to the portal wrapper.")
+  attr.(:container, :string, default: "div", doc: "The HTML tag to use as the portal wrapper.")
+  slot.(:inner_block, required: true)
+
+  def portal(assigns) do
+    ~H"""
+    <template id={@id} data-phx-portal={@target}>
+      <%!--
+        For correct DOM patching, each portal source (template) must have a single root element,
+        which we enforce by wrapping the slot in a div. In the generated CSS for
+        new projects, we include a display: contents rule for data-phx-teleported-src,
+        which is set by the LiveView JS when an element is teleported.
+      --%>
+      <.dynamic_tag tag_name={@container} id={"_lv_portal_wrap_" <> @id} class={@class}>
+        {render_slot(@inner_block)}
+      </.dynamic_tag>
+    </template>
+    """
   end
 end
