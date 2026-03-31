@@ -5662,7 +5662,9 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
   var LiveSocket = class {
     constructor(url, phxSocket, opts = {}) {
       this.reloadFn = opts.reload;
-      this.navigateFn = opts.navigate;
+      this.navigateFn = opts.navigate || ((url2) => {
+        window.location = url2;
+      });
       this.unloaded = false;
       if (!phxSocket || phxSocket.constructor.name === "Object") {
         throw new Error(`
@@ -6666,11 +6668,7 @@ removing illegal node: "${(childNode.outerHTML || childNode.nodeValue).trim()}"
       }
     }
     navigate(to) {
-      if (this.navigateFn) {
-        this.navigateFn(to);
-      } else {
-        window.location = to;
-      }
+      this.navigateFn(to);
     }
   };
   var TransitionSet = class {
