@@ -50,11 +50,15 @@ import jsCommands from "./js_commands";
 export const isUsedInput = (el) => DOM.isUsedInput(el);
 
 export default class LiveSocket {
-  constructor(url, phxSocket, opts = {}){
-    this.reloadFn = opts.reload
-    this.navigateFn = opts.navigate
-    this.unloaded = false
-    if(!phxSocket || phxSocket.constructor.name === "Object"){
+  constructor(url, phxSocket, opts = {}) {
+    this.reloadFn = opts.reload;
+    this.navigateFn =
+      opts.navigate ||
+      ((url) => {
+        window.location = url;
+      });
+    this.unloaded = false;
+    if (!phxSocket || phxSocket.constructor.name === "Object") {
       throw new Error(`
       a phoenix Socket must be provided as the second argument to the LiveSocket constructor. For example:
 
@@ -115,7 +119,7 @@ export default class LiveSocket {
     this.socket.onOpen(() => {
       if (this.isUnloaded()) {
         // reload page if being restored from back/forward cache and browser does not emit "pageshow"
-        this.reload()
+        this.reload();
       }
     });
   }
@@ -995,7 +999,7 @@ export default class LiveSocket {
         position: this.currentHistoryPosition,
       },
       href,
-      this.navigateFn
+      this.navigateFn,
     );
 
     DOM.dispatchEvent(window, "phx:navigate", {
@@ -1044,7 +1048,7 @@ export default class LiveSocket {
               position: this.currentHistoryPosition,
             },
             href,
-            this.navigateFn
+            this.navigateFn,
           );
 
           DOM.dispatchEvent(window, "phx:navigate", {
@@ -1260,18 +1264,14 @@ export default class LiveSocket {
 
   reload() {
     if (this.reloadFn) {
-      this.reloadFn()
+      this.reloadFn();
     } else {
-      window.location.reload()
+      window.location.reload();
     }
   }
 
   navigate(to) {
-    if (this.navigateFn) {
-      this.navigateFn(to)
-    } else {
-      window.location = to
-    }
+    this.navigateFn(to);
   }
 }
 
